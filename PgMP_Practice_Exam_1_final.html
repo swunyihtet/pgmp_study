@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>PMP Exam Simulator</title>
+    <style>
+:root {
+    --p-blue: #004b8d;
+    --p-bg: #f5f5f5;
+    --p-light: #f0f7ff;
+    --p-selected: #cce0f5;
+    --p-footer: #cccccc;
+}
+body { background: var(--p-bg); color: #333; font-family: Arial, sans-serif; margin:0; padding:0; min-height: 100vh; }
+#startScreen, #scoreScreen { position: fixed; inset: 0; background: white; z-index: 2000; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding: 40px 20px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+#examScreen { display: none; flex-direction: column; min-height: 100vh; background: white; }
+.exam-header { position: sticky; top: 0; background: var(--p-blue); color: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; z-index: 100; }
+.exam-header h2 { font-size: 0.9rem; margin: 0; text-transform: uppercase; }
+.exam-body { flex: 1; padding: 30px 20px 120px; max-width: 900px; margin: 0 auto; width: 100%; box-sizing: border-box; }
+.q-number { font-size: 1rem; font-weight: bold; margin-bottom: 15px; border-bottom: 1px solid #ddd; padding-bottom: 5px; }
+.q-text { font-size: 1.1rem; line-height: 1.5; margin-bottom: 30px; font-weight: 500; }
+.option-btn { display: flex; align-items: flex-start; padding: 15px; border: 1px solid transparent; background: white; cursor: pointer; width: 100%; text-align: left; margin-bottom: 2px; }
+.option-btn:hover { background: var(--p-light); }
+.option-btn.selected { background: var(--p-selected) !important; border: 1px solid var(--p-blue); }
+.opt-letter { min-width: 26px; height: 26px; border: 2px solid #555; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 15px; font-weight: bold; font-size: 0.85rem; flex-shrink: 0; }
+.option-btn.selected .opt-letter { background: var(--p-blue); color: white; border-color: var(--p-blue); }
+.actions { position: fixed; bottom: 0; left: 0; right: 0; background: var(--p-footer); padding: 15px 30px; display: flex; justify-content: space-between; border-top: 1px solid #999; z-index: 500; }
+.btn-p { background: linear-gradient(to bottom, #fff, #e5e5e5); border: 1px solid #888; padding: 10px 25px; font-weight: bold; cursor: pointer; border-radius: 3px; font-size: 0.9rem; min-width: 100px; text-transform: uppercase; }
+.btn-next { color: var(--p-blue); border-color: var(--p-blue); }
+.review-q-card { background: white; border: 1px solid #ddd; border-radius: 8px; padding: 20px; margin-bottom: 25px; text-align: left; width: 100%; box-sizing: border-box; }
+.review-opt { padding: 10px; margin: 5px 0; border-radius: 4px; border: 1px solid #eee; font-size: 0.95rem; display: flex; align-items: flex-start; gap: 10px; }
+.review-opt.is-correct { background: #e8f5e9; border-color: #66bb6a; font-weight: bold; }
+.review-opt.user-wrong { background: #ffebee; border-color: #ef5350; }
+.review-exp { margin-top: 15px; padding: 15px; background: #f8fafc; border-left: 4px solid var(--p-blue); font-size: 0.9rem; line-height: 1.6; color: #334155; }
+.status-tag { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; margin-bottom: 12px; }
+.status-correct { background: #e8f5e9; color: #166534; }
+.status-wrong { background: #ffebee; color: #991b1b; }
+.score-big { font-size: 5rem; color: var(--p-blue); font-weight: 800; margin: 20px 0; }
+
+
+.btn-home:hover { background: rgba(255,255,255,0.3); border-color: white; }
+
+
+.music-toggle:hover { background: rgba(255,255,255,0.1); border-color: white; }
+
+
+.highlighted { background-color: yellow; }
+</style>
+</head>
+<body>
+
+<div id="startScreen">
+    <h1 style="margin-bottom:10px">PgMP Practice Exam</h1>
+    <p style="color:#666; margin-bottom:30px">Choose assessment volume:</p>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:30px; width:100%; max-width:400px;">
+        <button class="btn-p" onclick="setCount(10)">10 Questions</button>
+        <button class="btn-p" onclick="setCount(25)">25 Questions</button>
+        <button class="btn-p" onclick="setCount(50)">50 Questions</button>
+        <button class="btn-p" onclick="setCount(175)">Full Exam</button>
+    </div>
+    <button class="btn-p" style="padding:15px 50px; background:var(--p-blue); color:white; border:none;" onclick="startExam()">Launch Exam</button><br><br><a href="index.html" class="btn-p" style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center; background:none; border:1px solid #ccc; color:#666; font-size:0.8rem;">← Return to Archive</a>
+</div>
+
+<div id="examScreen">
+    <div class="exam-header">
+        <h2>PMP Simulation</h2>
+        <button id="highlightBtn" class="music-toggle" onclick="applyHighlight()">Highlight</button><div id="timer" style="font-weight:bold">00:00:00</div>
+    </div>
+    <div class="exam-body">
+        <div id="qNumber" class="q-number"></div>
+        <div id="qText" class="q-text"></div>
+        <div id="options" class="options"></div>
+    </div>
+    <div class="actions">
+        <button class="btn-p" id="btnBack" onclick="prevQ()">Previous</button>
+        <button class="btn-p btn-next" id="btnNext" onclick="nextQ()">Next</button>
+    </div>
+</div>
+
+<div id="scoreScreen" style="display:none">
+    <h1 id="scoreHeading">Exam Result</h1>
+    <div class="score-big" id="finalScore">0%</div>
+    <div id="scoreMeta" style="margin-bottom:30px; text-align:center; font-size:1.1rem; line-height:1.6;"></div>
+    
+    <div style="display:flex; gap:10px; margin-bottom:40px">
+        <button class="btn-p" id="btnShowReview" onclick="showReview()">Review All</button>
+        <button class="btn-p" onclick="location.reload()">Restart</button>
+    </div>
+
+    <div id="reviewContainer" style="display:none; width:100%; max-width:800px; border-top:1px solid #ddd; padding-top:40px;">
+        <div id="reviewList"></div>
+        <button class="btn-p" style="width:100%; margin-top:20px" onclick="location.reload()">Start New Session</button>
+    </div>
+</div>
+
+<script>
+
+function applyHighlight() {
+    const selection = window.getSelection();
+    if (selection && selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        const selectedText = range.toString();
+        if (selectedText.length > 0) {
+            const span = document.createElement('span');
+            span.className = 'highlighted';
+            range.surroundContents(span);
+        }
+    }
+}
+
+document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.key === 'j') {
+        e.preventDefault();
+        applyHighlight();
+    }
+});
+
+const ALL_QUESTIONS = [
+  {
+    "q":"Which of the following documents contain a list of all problems, unfavorable events, or situations that occurred so far in the program?",
+    "opts":[
+      "A.Program Charter",
+      "B.Program Risk Register",
+      "C.Program Issue Register",
+      "D.Program Scope Statement"
+    ],
+    "correct":["C"],
+    "explanation":"The Program Issue Register contains the complete list of all problems, unfavorable events, or situations that have occurred in the program to date, including details such as description, impact, owner, status, and resolution actions. It is used to track actual issues that have already materialized and supports program monitoring, control, escalation, and governance reporting. The other options are incorrect because the Program Charter authorizes the program and does not track issues, the Program Risk Register records potential future risks rather than actual issues, and the Program Scope Statement defines program deliverables and boundaries rather than issue tracking."
+  },
+  {
+    "q":"An organization supports both programs and projects for various industries. What is a portfolio?",
+    "opts":[
+      "A.A portfolio is the total amount of funds that have been invested in programs, projects, and operations.",
+      "B.A portfolio describes all of the monies that are invested in the organization.",
+      "C.A portfolio describes the organization of related projects, programs, and operations.",
+      "D.A portfolio describes any project or program within one industry or application area."
+    ],
+    "correct":["C"],
+    "explanation":"A portfolio is a centralized grouping of projects, programs, subsidiary portfolios, and operations that are managed collectively to achieve strategic objectives and optimize organizational value delivery. It focuses on strategic alignment, governance, prioritization, and resource optimization across organizational components. The other options are incorrect because portfolios are not defined by the total amount of funds invested in the organization or its initiatives, and they are not limited to projects or programs within a specific industry or application area. Instead, portfolio components are grouped and managed based on their contribution to organizational strategy and objectives."
+  },
+  {
+  "q":"A global financial system is being delivered by the program team to allow access from anywhere in the world. Following a new cross-border regulation applying to privacy of local banking data accessed from abroad, the CEO of the bank requests that an external audit be conducted to validate compliance with this new regulation. This event, which was not anticipated at this phase of the program, will generate additional work for the program team. This effort is not included in the current program roadmap and benefits delivery plan. What immediate actions should the program manager take?",
+  "opts":[
+    "A.Assess the impact of the audit and potential remediation on the program",
+    "B.Accept the risk of the audit and continue the program as planned",
+    "C.Negotiate with the CEO in an attempt to avoid the audit",
+    "D.De-scope the capabilities of the system to not allow access from abroad"
+  ],
+  "correct":["A"],
+  "explanation":"The program manager's immediate action when faced with an unanticipated regulatory requirement and a CEO-mandated audit is to assess the impact on the program. This assessment should evaluate the effects on scope, schedule, cost, risks, benefits, and the program roadmap before any changes are implemented. Regulatory changes are external factors that require analysis through established governance and change management processes. The assessment enables informed decision-making regarding required remediation activities, potential change requests, and compliance obligations. The other options are incorrect because regulatory compliance cannot simply be accepted as a risk, avoiding an audit would undermine governance and compliance responsibilities, and de-scoping global access capabilities would reduce program benefits without first understanding the full impact of the regulation."
+},
+{
+  "q":"The program director of a four-year program, estimated to require 600,000 person-days effort, notices that team morale has decreased over the last three months. The program is at a critical stage with 70% completion through the test phase. A number of defects are found that result in teams working additional hours. The program director requests that the program management office (PMO) gather metrics to monitor the situation. Which of the following metrics should the PMO capture on a monthly basis?",
+  "opts":[
+    "A.Absenteeism rate, staff turnover, quantity of defects, total hours worked, average number of FTEs",
+    "B.Billable hours charged to the program, non-billable hours charged to the program, quantity of defects per full-time equivalent (FTE)",
+    "C.Absenteeism rate, staff turnover and leave liability",
+    "D.Amount of hours spent on rework of software coding, retesting, and on non-rework activities"
+  ],
+  "correct":["A"],
+  "explanation":"The most appropriate metrics are absenteeism rate, staff turnover, quantity of defects, total hours worked, and average number of FTEs. Together, these measures provide a comprehensive view of team morale, workload, quality issues, and resource capacity. Absenteeism and staff turnover are leading indicators of declining morale and employee engagement. The quantity of defects helps monitor the quality issues contributing to rework and project pressure. Total hours worked reveals whether teams are consistently working excessive overtime, while the average number of FTEs helps assess whether sufficient staffing is available to meet workload demands. By tracking these metrics monthly, the PMO can identify correlations between workload, quality problems, and workforce well-being, enabling timely interventions before the critical testing phase is completed. The other options provide only partial visibility and do not sufficiently address both the human and performance factors affecting the program."
+},
+{
+  "q":"A multi-year complex program will deliver advanced driver assistance system (ADAS) components for autonomous vehicles. Several key stakeholders are concerned because they have not been regularly involved with the program and do not understand the program's benefits. What should the program manager do to address these key stakeholders' concerns?",
+  "opts":[
+    "A.Create a progress report to share with stakeholders after the next status meeting.",
+    "B.Meet with the stakeholders and update the stakeholder map.",
+    "C.Capture stakeholder expectations, and revise the stakeholder engagement plan.",
+    "D.Update the communications management plan after meeting with the program steering committee."
+  ],
+  "correct":["C"],
+  "explanation":"The program manager should capture stakeholder expectations and revise the stakeholder engagement plan. Stakeholders who do not understand the program's benefits or feel insufficiently involved indicate a gap in stakeholder engagement rather than merely a communication issue. The program manager should meet with the affected stakeholders, understand their expectations regarding benefits realization, participation, and communication needs, and then update the stakeholder engagement plan to ensure appropriate involvement and support throughout the program lifecycle. This approach addresses the root causes of the concern and helps maintain stakeholder buy-in and commitment. The other options are less effective because they focus only on reporting, stakeholder mapping, or communications activities without fully addressing stakeholder expectations and engagement strategies."
+},
+{
+  "q":"You need to create a document that will define the costs, resources, and characteristics of each deliverable the program will create. What document should you create?",
+  "opts":[
+    "A.Program Charter",
+    "B.Program Work Breakdown Structure",
+    "C.Program Scope Statement",
+    "D.Program Work Breakdown Structure Dictionary"
+  ],
+  "correct":["D"],
+  "explanation":"The Program Work Breakdown Structure (WBS) Dictionary is the document used to define the detailed costs, resources, and characteristics of each deliverable within a program. It provides supplementary information for every WBS element, including descriptions, resource requirements, cost estimates, assumptions, constraints, and acceptance criteria. While the Program WBS organizes the total program scope into a hierarchical structure of deliverables, the WBS Dictionary provides the detailed information necessary to plan, execute, monitor, and control those deliverables. The other options are incorrect because the Program Charter authorizes the program and contains high-level information, the Program WBS only decomposes the scope without detailed deliverable definitions, and the Program Scope Statement defines the overall scope and deliverable characteristics but does not provide the detailed cost and resource information for each individual deliverable."
+},
+{
+  "q":"Which one of the following is the best definition of program quality?",
+  "opts":[
+    "A.Balancing the time, cost, and scope objectives of the project.",
+    "B.Satisfying the program scope, conforming to requirements, and ensuring a fitness for use.",
+    "C.Working with the program team, project managers, and the project team members to ensure that the work is done accurately and correctly the first time.",
+    "D.Creating the program scope statement exactly as the stakeholders have requested."
+  ],
+  "correct":["B"],
+  "explanation":"Program quality is best defined as satisfying the program scope, conforming to requirements, and ensuring fitness for use. Quality in program management focuses on whether the benefits, products, and services delivered by the program meet stakeholder needs, comply with defined requirements, and provide the intended value to beneficiaries. Fitness for use is a key quality measure because it evaluates whether the outcomes can effectively fulfill their intended purpose. Quality management also includes quality assurance and quality control processes to ensure compliance with standards and customer expectations. The other options are incorrect because balancing time, cost, and scope relates to project constraints rather than quality itself, ensuring work is done correctly is only one aspect of quality management, and creating a scope statement according to stakeholder requests does not by itself guarantee that the resulting deliverables will meet quality requirements or provide the intended benefits."
+},
+{
+  "q":"Alice is the project manager of the NHQ Project and is entering the project's closing processes. The project she has managed has been for another organization in a contractual relationship. Her organization requires Alice to complete performance reviews of the project team, review the deliverables with the project customer, and obtain formal signoff of the project deliverables. There may be other conditions and activities that Alice will need to complete in this final project phase. Where can Alice check regarding this project?",
+  "opts":[
+    "A.Project Quality Control Procedures",
+    "B.Project Communications Management Plan",
+    "C.Project Contract",
+    "D.Project Integration Plan"
+  ],
+  "correct":["C"],
+  "explanation":"Alice should review the Project Contract. When a project is performed for an external organization under a contractual relationship, the contract is the primary source that defines the requirements, obligations, acceptance criteria, deliverables, signoff procedures, and closure conditions that must be satisfied before the project can be formally closed. During project closure, it is essential to verify that all contractual obligations have been fulfilled, all deliverables have been accepted, and any outstanding issues have been resolved. The other options are incorrect because Quality Control Procedures focus on quality verification activities, the Communications Management Plan defines how project information is communicated, and the Integration Plan coordinates project activities, but none of these documents provide the legally binding closure requirements contained within the contract."
+},
+{
+  "q":"You are the program manager for your organization and you need to define all of the program resources you'll need for your program. All of the following can be considered a program resource except for which one?",
+  "opts":[
+    "A.A forklift",
+    "B.Materials for the installation of a new server",
+    "C.A positive risk response",
+    "D.Gary, an application developer"
+  ],
+  "correct":["C"],
+  "explanation":"Program resources include the people, equipment, materials, facilities, and funding required to plan, manage, and deliver a program. A forklift and materials for a server installation are physical resources that support program execution, while Gary, an application developer, represents a human resource contributing specialized skills and effort. A positive risk response, however, is not a resource. It is a risk management strategy or action taken to capitalize on an opportunity and improve the likelihood of achieving program benefits. Therefore, a positive risk response is part of program risk management activities rather than a resource that can be allocated or consumed by the program."
+},
+{
+  "q":"You are the program manager for your organization and you're dealing with several issues about the materials used in the program. Right now, the issues have been assigned to issue owners for resolution in ten days. In the interim, what should you do with the issues?",
+  "opts":[
+    "A.Nothing. The issue owners will manage all concerns with the issues.",
+    "B.Record the issues in the issue register.",
+    "C.Communicate the issue status with the program sponsor.",
+    "D.Document the issues in the risk register."
+  ],
+  "correct":["B"],
+  "explanation":"The program manager should record the issues in the issue register. The issue register serves as the central repository for documenting, prioritizing, tracking, and monitoring issues throughout the program lifecycle. Even when issue owners have been assigned and are actively working toward resolution, the program manager remains responsible for maintaining visibility, oversight, and governance of all program issues. Recording issues in the issue register ensures that their status, ownership, impact, due dates, and resolution plans are properly documented and monitored. The other options are incorrect because issue owners are responsible for resolving issues but not for overall program-level tracking, communicating with the sponsor alone does not provide adequate issue management, and issues should not be recorded in the risk register because risks are uncertain future events whereas issues are existing problems that require resolution."
+},
+{
+  "q":"You are the program manager for your organization and working to create the program statement of work for approval by the program director. All of the following information is defined in the program statement of work except for which one?",
+  "opts":[
+    "A.Structure of the program management team",
+    "B.Location of the program work",
+    "C.Metrics and qualifications for program acceptance",
+    "D.Program requirements for resource competency levels"
+  ],
+  "correct":["A"],
+  "explanation":"The Program Statement of Work (SOW) defines the work to be performed and includes information such as the location of the work, acceptance criteria and metrics, resource requirements, and the competency levels needed to successfully execute the program. These details help establish clear expectations for program delivery and provide the basis for planning, executing, and monitoring program activities. The structure of the program management team, however, is typically defined within the Program Charter and governance framework rather than the Statement of Work. The Program Charter authorizes the program and outlines the governance structure, roles, responsibilities, and management approach that will be used to oversee the program. Therefore, the structure of the program management team is not typically included in the Program Statement of Work."
+},
+{
+  "q":"A new program is being initiated for the HNQ Organization. The program manager is working with the business analyst and management to define several attributes of the program. All of the following are identified during program initiation except for which one?",
+  "opts":[
+    "A.Link to organizational strategy",
+    "B.Program scope",
+    "C.Program risk",
+    "D.Program benefits"
+  ],
+  "correct":["C"],
+  "explanation":"During program initiation, key elements such as the link to organizational strategy, high-level program scope, and expected program benefits are identified and documented. These elements support the development of the business case and program charter, ensuring that the program aligns with organizational objectives and delivers measurable value. Program benefits are defined early to justify the investment, while the program scope provides a high-level understanding of what the program intends to achieve. Program risk management, however, is not fully defined during initiation. Although some high-level risks may be recognized, detailed risk identification, analysis, response planning, and ongoing risk management activities are typically developed during the planning and delivery phases of the program. Therefore, program risk is the attribute that is not primarily identified or finalized during program initiation."
+},
+{
+  "q":"You are coaching Tammy, a project manager in your program, on the benefits of program management. She is stumped as to why you would create a program so you're sharing with her all the difference benefits of a program. Which one of the following is a benefit of creating a program?",
+  "opts":[
+    "A.Programs always cost less than multiple projects in an organization.",
+    "B.Project management is centralized to the program manager.",
+    "C.Programs provide centralized risk management.",
+    "D.Program management makes communication easier among the project managers and project team."
+  ],
+  "correct":["C"],
+  "explanation":"One of the key benefits of program management is centralized risk management. Programs provide a structured approach for identifying, analyzing, monitoring, and responding to risks that affect multiple projects and program components. Program-level risk management enables the coordination of risk responses across projects, management of interdependencies, and escalation of risks that have broader organizational impact. This centralized oversight allows the program team to address cumulative and strategic risks more effectively than if each project managed risks independently. The other options are incorrect because programs do not always cost less than multiple projects, project managers retain responsibility for managing their individual projects rather than having all project management centralized under the program manager, and communication within a program can actually become more complex due to the larger number of stakeholders and interdependencies involved."
+},
+{
+  "q":"Program A is dependent upon program B to complete benefits sustainment for two benefits. Program A is on track to meet program benefits. However, program B's program manager has just advised that program B has been closed. What should program A's program manager update and review first with the stakeholders?",
+  "opts":[
+    "A.Benefits Sustainment Plan",
+    "B.Benefits Register",
+    "C.Benefits Management Plan",
+    "D.Benefits Transition Plan"
+  ],
+  "correct":["C"],
+  "explanation":"The program manager should first update and review the Benefits Management Plan with stakeholders. The Benefits Management Plan is the primary document that defines how benefits will be identified, delivered, transitioned, measured, and sustained throughout the program lifecycle. Since Program B was responsible for sustaining two benefits and has now been closed, a significant change has occurred in the benefits realization environment. The Benefits Management Plan must be updated to reassess benefit ownership, sustainment responsibilities, delivery timelines, and accountability. The other options are secondary documents. The Benefits Register records benefit details and status but does not define the overall strategy for managing benefits. The Benefits Sustainment Plan is typically developed later and is based on the approach established in the Benefits Management Plan. The Benefits Transition Plan focuses on the execution of benefit handover activities and should be updated only after the strategic direction in the Benefits Management Plan has been revised."
+},
+{
+  "q":"Communication is a large percentage of program execution as the program manager must communicate with the appropriate stakeholders. In larger programs face-to-face communication is not always possible. When emails are used, what verbal aspect of communication is lost?",
+  "opts":[
+    "A.Noise",
+    "B.Nonverbal",
+    "C.Barriers",
+    "D.Paralingual"
+  ],
+  "correct":["D"],
+  "explanation":"When email is used as a communication medium, paralingual aspects of communication are lost. Paralingual communication refers to vocal characteristics such as tone, pitch, volume, pace, emphasis, and inflection that help convey meaning beyond the actual words being spoken. Because email is a text-based medium, recipients cannot hear these vocal cues, which can sometimes lead to misunderstandings or incorrect interpretations of the sender's intent. The other options are incorrect because nonverbal communication refers to body language, facial expressions, and gestures; noise refers to factors that interfere with the transmission or understanding of a message; and barriers are obstacles that hinder effective communication. Of these choices, paralingual communication is the specific verbal element that is lost when communication occurs through email rather than spoken conversation."
+},
+{
+  "q":"A global financial system is being delivered by the program team to allow access from anywhere in the world. Following a new cross-border regulation applying to privacy of local banking data accessed from abroad, the CEO of the bank requests that an external audit be conducted to validate compliance with this new regulation. This event, which was not anticipated at this phase of the program, will generate additional work for the program team. This effort is not included in the current program roadmap and benefits delivery plan. What immediate actions should the program manager take?",
+  "opts":[
+    "A.Assess the impact of the audit and potential remediation on the program",
+    "B.Accept the risk of the audit and continue the program as planned",
+    "C.Negotiate with the CEO in an attempt to avoid the audit",
+    "D.De-scope the capabilities of the system to not allow access from abroad"
+  ],
+  "correct":["A"],
+  "explanation":"The program manager should first assess the impact of the audit and potential remediation on the program. An unexpected audit driven by a new regulatory requirement represents an external change that may affect the program's scope, schedule, cost, resources, risks, benefits, and roadmap. A formal impact assessment enables the program manager to understand the implications of the new compliance requirements, evaluate any remediation efforts that may be necessary, and determine whether updates to the business case, benefits delivery plan, or program baselines are required. Only after completing this analysis should decisions be made regarding program changes, re-baselining, resource allocation, or governance actions. The other options are incorrect because regulatory compliance cannot simply be accepted as a risk, attempting to avoid a required audit would violate governance and compliance responsibilities, and de-scoping key program capabilities without analysis could unnecessarily reduce program benefits and strategic value."
+},
+{
+  "q":"In your program you must adhere to Six Sigma as part of your organization's enterprise environmental factors. There is terminology, reports, and measurements that you are expected to use as part of your program. Six Sigma is an example of what program management process?",
+  "opts":[
+    "A.Quality Assurance",
+    "B.Scope Verification",
+    "C.Process Improvement",
+    "D.Quality Control"
+  ],
+  "correct":["C"],
+  "explanation":"Six Sigma is an example of a process improvement methodology. It focuses on improving and standardizing processes through the use of defined terminology, measurements, performance metrics, and continuous improvement techniques aimed at reducing variation and defects. Within a program environment, Six Sigma supports organizational process improvement by establishing consistent practices, measurement systems, and governance standards that enhance efficiency and quality across projects and program components. The other options are incorrect because Quality Assurance focuses on ensuring compliance with quality standards, Quality Control focuses on inspecting deliverables and identifying defects, and Scope Verification is concerned with validating completed deliverables against approved requirements. Six Sigma's primary objective is the continuous improvement and optimization of processes rather than verification or inspection activities."
+},
+{
+  "q":"A program has a BAC of $550,000 and is currently 45 percent complete though was actually scheduled to be 55 percent complete by this time. The program has spent, however, $265,000 to date. Based on this information what is the cost performance index (CPI) for this program?",
+  "opts":[
+    "A.0.93",
+    "B.-$38,889",
+    "C.$323,889",
+    "D.0.82"
+  ],
+  "correct":["A"],
+  "explanation":"To calculate the Cost Performance Index (CPI), first determine the Earned Value (EV). The program's BAC is $550,000 and actual completion is 45%, so EV = 0.45 × $550,000 = $247,500. The Actual Cost (AC) is $265,000. CPI is calculated as EV ÷ AC, therefore CPI = $247,500 ÷ $265,000 = 0.934, which rounds to 0.93. A CPI below 1.0 indicates that the program is spending more money than planned for the work accomplished and is therefore over budget. The scheduled completion percentage of 55% is used for schedule-related calculations such as SPI and does not affect the CPI calculation."
+},
+{
+  "q":"As a Program Manager, you decide to take the team on an outing where they can work together through challenges, learn teamwork, and get to know one another. This is an example of what process?",
+  "opts":[
+    "A.Storming",
+    "B.Forming",
+    "C.Team Development",
+    "D.Cost of Quality"
+  ],
+  "correct":["C"],
+  "explanation":"Taking the team on an outing to work through challenges, build relationships, improve collaboration, and learn teamwork is an example of Team Development. Team development activities are intentionally performed by the program manager to strengthen trust, improve communication, enhance interpersonal relationships, and increase overall team effectiveness. These activities help create a cohesive team that can work together more efficiently to achieve program objectives. The other options are incorrect because Forming and Storming are natural stages of team development described in Tuckman's model and are not management processes that the program manager actively performs. Cost of Quality relates to the costs of preventing, detecting, and correcting defects and has no connection to team-building activities."
+},
+{
+  "q":"You are a program manager of a program. You are required to compile performance data of your program. These data will be sent to relevant stakeholders. You are reviewing the status reports of all projects including the costs, schedule, scope, risks, and other performance data. In which of the following processes are you working on?",
+  "opts":[
+    "A.Monitor and Control Program Performance",
+    "B.Distribute Information",
+    "C.Plan Communication",
+    "D.Report Program Performance"
+  ],
+  "correct":["D"],
+  "explanation":"The activities described are part of the Report Program Performance process. In this process, the program manager collects, consolidates, analyzes, and summarizes performance information from component projects and program activities before presenting it to stakeholders. This includes reviewing project status reports, cost performance, schedule performance, scope status, risks, issues, and other key metrics to create meaningful program-level performance reports. The goal is to provide stakeholders with accurate and timely information regarding the program's progress and overall health. The other options are incorrect because Monitor and Control Program Performance focuses on analyzing variances and implementing corrective actions, Distribute Information involves transmitting already prepared information to stakeholders, and Plan Communication focuses on defining communication requirements, methods, frequency, and stakeholder needs rather than compiling performance data."
+}
+];
+
+let examQs = [];
+let currentIdx = 0;
+let userAnswers = {};
+let chosenCount = 175;
+let startTime;
+let timerInterval;
+
+function setCount(n) { chosenCount = n; startExam(); }
+
+function shuffle(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+    }
+    return array;
+}
+
+function startExam() {
+    examQs = shuffle([...ALL_QUESTIONS]).slice(0, chosenCount);
+    document.getElementById('startScreen').style.display = 'none';
+    document.getElementById('examScreen').style.display = 'flex';
+    startTime = Date.now();
+    timerInterval = setInterval(updateTimer, 1000);
+    renderQuestion();
+}
+
+function getFormattedTime(diffMs) {
+    const totalSecs = Math.floor(diffMs / 1000);
+    const h = Math.floor(totalSecs / 3600).toString().padStart(2, '0');
+    const m = Math.floor((totalSecs % 3600) / 60).toString().padStart(2, '0');
+    const s = (totalSecs % 60).toString().padStart(2, '0');
+    return h + ":" + m + ":" + s;
+}
+
+function updateTimer() {
+    const diff = Date.now() - startTime;
+    document.getElementById('timer').textContent = getFormattedTime(diff);
+}
+
+function renderQuestion() {
+    const q = examQs[currentIdx];
+    const isMulti = q.correct.length > 1;
+    document.getElementById('qNumber').textContent = "Question " + (currentIdx + 1) + " of " + examQs.length;
+    document.getElementById('qText').innerHTML = q.q + (isMulti ? "<br><small style='color:var(--p-blue); font-weight:bold;'>(Choose " + q.correct.length + " options)</small>" : "");
+    
+    const container = document.getElementById('options');
+    container.innerHTML = '';
+    
+    const currentSelection = userAnswers[currentIdx] || [];
+
+    q.opts.forEach(opt => {
+        const letter = opt.charAt(0);
+        const text = opt.substring(2);
+        const btn = document.createElement('div');
+        btn.className = 'option-btn';
+        if (currentSelection.includes(letter)) btn.classList.add('selected');
+        
+        btn.innerHTML = '<span class="opt-letter">' + letter + '</span><span>' + text + '</span>';
+        btn.onclick = () => selectOption(letter, isMulti, q.correct.length);
+        container.appendChild(btn);
+    });
+    
+    document.getElementById('btnBack').style.visibility = currentIdx === 0 ? 'hidden' : 'visible';
+    const hasEnoughChoices = isMulti ? (currentSelection.length === q.correct.length) : (currentSelection.length > 0);
+    document.getElementById('btnNext').style.display = hasEnoughChoices ? 'block' : 'none';
+    document.getElementById('btnNext').textContent = currentIdx === examQs.length - 1 ? 'Finish' : 'Next';
+    window.scrollTo(0,0);
+}
+
+function selectOption(letter, isMulti, maxChoices) {
+    if (!userAnswers[currentIdx]) userAnswers[currentIdx] = [];
+    let selections = userAnswers[currentIdx];
+
+    if (!isMulti) {
+        userAnswers[currentIdx] = [letter];
+    } else {
+        const idx = selections.indexOf(letter);
+        if (idx > -1) {
+            selections.splice(idx, 1);
+        } else {
+            if (selections.length < maxChoices) {
+                selections.push(letter);
+            }
+        }
+    }
+    renderQuestion();
+}
+
+function nextQ() {
+    if (currentIdx < examQs.length - 1) {
+        currentIdx++;
+        renderQuestion();
+    } else {
+        finishExam();
+    }
+}
+
+function prevQ() {
+    if (currentIdx > 0) {
+        currentIdx--;
+        renderQuestion();
+    }
+}
+
+function finishExam() {
+    const endTime = Date.now();
+    const timeSpentMs = endTime - startTime;
+    clearInterval(timerInterval);
+    
+    let correct = 0;
+    examQs.forEach((q, idx) => {
+        const userSelection = userAnswers[idx] || [];
+        const correctAnswers = q.correct;
+        const isMatch = userSelection.length === correctAnswers.length && userSelection.every(val => correctAnswers.includes(val));
+        if (isMatch) correct++;
+    });
+    
+    const score = Math.round((correct / examQs.length) * 100);
+    document.getElementById('examScreen').style.display = 'none';
+    document.getElementById('scoreScreen').style.display = 'flex';
+    document.getElementById('finalScore').textContent = score + "%";
+    
+    document.getElementById('scoreMeta').innerHTML = 
+        "Correct: <strong>" + correct + "</strong> / " + examQs.length + "<br>" +
+        "Time Elapsed: <strong>" + getFormattedTime(timeSpentMs) + "</strong><br>" +
+        "Result: <strong style='color:" + (score >= 70 ? "#166534" : "#991b1b") + "'>" + (score >= 70 ? "PASS" : "FAIL") + "</strong>";
+    
+    document.getElementById('scoreScreen').scrollTop = 0;
+}
+
+function showReview() {
+    const container = document.getElementById('reviewContainer');
+    const list = document.getElementById('reviewList');
+    const screen = document.getElementById('scoreScreen');
+    
+    container.style.display = 'block';
+    document.getElementById('btnShowReview').style.display = 'none';
+    document.getElementById('scoreHeading').textContent = 'Review Mode';
+    list.innerHTML = '';
+    
+    examQs.forEach((q, idx) => {
+        const userSelection = userAnswers[idx] || [];
+        const correctAnswers = q.correct;
+        const isMatch = userSelection.length === correctAnswers.length && userSelection.every(val => correctAnswers.includes(val));
+        
+        const card = document.createElement('div');
+        card.className = 'review-q-card';
+        
+        let optsHtml = '';
+        q.opts.forEach(opt => {
+            const letter = opt.charAt(0);
+            let stateClass = '';
+            if (correctAnswers.includes(letter)) stateClass = 'is-correct';
+            else if (userSelection.includes(letter) && !correctAnswers.includes(letter)) stateClass = 'user-wrong';
+            optsHtml += '<div class="review-opt ' + stateClass + '"><strong>' + letter + '</strong> ' + opt.substring(2) + '</div>';
+        });
+        
+        card.innerHTML = '<div class="status-tag ' + (isMatch ? 'status-correct' : 'status-wrong') + '">' + (isMatch ? 'Correct' : 'Incorrect') + '</div>' +
+            '<div style="font-weight: bold; margin-bottom: 15px;">Question ' + (idx + 1) + ': ' + q.q + '</div>' +
+            '<div class="review-opts">' + optsHtml + '</div>' +
+            '<div class="review-exp"><strong>Explanation:</strong> ' + (q.explanation || 'No explanation provided.') + '</div>';
+        list.appendChild(card);
+    });
+    
+    screen.scrollTop = 0;
+}
+
+
+
+
+</script>
+</body>
+</html>
